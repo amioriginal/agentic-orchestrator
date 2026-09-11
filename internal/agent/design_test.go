@@ -84,8 +84,8 @@ func TestBuildDesignPromptWithQAPaths(t *testing.T) {
 	qaFiles := []string{"/tmp/features/abc/inquire/qa-answers.md", "/tmp/features/abc/research/qa-answers.md"}
 	prompt := BuildDesignPrompt(f, "", "", "/tmp/research.md", qaFiles)
 
-	if !strings.Contains(prompt, "## User Decisions") {
-		t.Error("expected '## User Decisions' section")
+	if !strings.Contains(prompt, "## Prior Operator Responses") {
+		t.Error("expected '## Prior Operator Responses' section")
 	}
 	for _, qf := range qaFiles {
 		if !strings.Contains(prompt, qf) {
@@ -104,13 +104,13 @@ func TestBuildDesignPromptNoQAPaths(t *testing.T) {
 		Inquireness: feature.InquirenessMedium,
 	}
 	prompt := BuildDesignPrompt(f, "", "", "/tmp/research.md", nil)
-	if strings.Contains(prompt, "## User Decisions") {
-		t.Error("expected no User Decisions section when qaFilePaths is nil")
+	if strings.Contains(prompt, "## Prior Operator Responses") {
+		t.Error("expected no Prior Operator Responses section when qaFilePaths is nil")
 	}
 
 	prompt2 := BuildDesignPrompt(f, "", "", "/tmp/research.md", []string{})
-	if strings.Contains(prompt2, "## User Decisions") {
-		t.Error("expected no User Decisions section when qaFilePaths is empty")
+	if strings.Contains(prompt2, "## Prior Operator Responses") {
+		t.Error("expected no Prior Operator Responses section when qaFilePaths is empty")
 	}
 }
 

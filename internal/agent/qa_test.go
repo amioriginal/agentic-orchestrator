@@ -148,7 +148,10 @@ func TestWriteQAFileMarkdownFormat(t *testing.T) {
 	}
 	content := string(data)
 	// Verify exact heading structure
-	if !strings.HasPrefix(content, "# User Q&A — Phase Clarifications\n\n") {
+	if !strings.HasPrefix(content, "# Operator Q&A — Phase Clarifications\n\n") {
 		t.Error("expected file to start with top-level heading")
+	}
+	if !strings.Contains(content, "Do not attribute these answers to the end user") {
+		t.Error("expected operator provenance warning")
 	}
 }

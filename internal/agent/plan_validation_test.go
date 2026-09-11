@@ -739,7 +739,10 @@ func TestPhasePlanningLoopWritesFirstAttemptQALog(t *testing.T) {
 	store := feature.NewStore(stateDir)
 	f := newTestPlanFeature(t, workDir)
 	f.Pipeline = feature.PipelineMedium
-	f.Inquireness = feature.InquirenessHigh
+	// This test exercises the auto-pick Q&A artifact path. High inquireness
+	// intentionally disables phase-plan auto-pick; medium keeps this fixture on
+	// the auto-pick path while the separate session-policy tests cover high.
+	f.Inquireness = feature.InquirenessMedium
 	if err := store.Save(f); err != nil {
 		t.Fatalf("Save(feature): %v", err)
 	}

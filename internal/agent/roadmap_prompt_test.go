@@ -378,8 +378,8 @@ func TestBuildRoadmapPrompt_WithQAFiles(t *testing.T) {
 	qaFiles := []string{"/state/feat/inquire/qa-answers.md", "/state/feat/research/qa-answers.md"}
 	prompt := BuildRoadmapPrompt(f, "", "", "/path/to/design.md", qaFiles)
 
-	if !strings.Contains(prompt, "User Decisions") {
-		t.Error("prompt should contain User Decisions section when QA files present")
+	if !strings.Contains(prompt, "Prior Operator Responses") {
+		t.Error("prompt should contain Prior Operator Responses section when QA files present")
 	}
 	if !strings.Contains(prompt, "/state/feat/inquire/qa-answers.md") {
 		t.Error("prompt should contain inquire QA file path")
@@ -400,8 +400,8 @@ func TestBuildRoadmapPrompt_NoQAFiles(t *testing.T) {
 
 	prompt := BuildRoadmapPrompt(f, "", "", "/path/to/design.md", nil)
 
-	if strings.Contains(prompt, "User Decisions") {
-		t.Error("prompt should not contain User Decisions section when no QA files")
+	if strings.Contains(prompt, "Prior Operator Responses") {
+		t.Error("prompt should not contain Prior Operator Responses section when no QA files")
 	}
 }
 
@@ -424,8 +424,8 @@ func TestBuildPhasePlanPrompt_WithQAFiles(t *testing.T) {
 	qaFiles := []string{"/state/feat/design/qa-answers.md"}
 	prompt := BuildPhasePlanPrompt(f, "", "", "/roadmap.md", phase, qaFiles)
 
-	if !strings.Contains(prompt, "User Decisions") {
-		t.Errorf("BuildPhasePlanPrompt(...) missing User Decisions section")
+	if !strings.Contains(prompt, "Prior Operator Responses") {
+		t.Errorf("BuildPhasePlanPrompt(...) missing Prior Operator Responses section")
 	}
 	if !strings.Contains(prompt, "/state/feat/design/qa-answers.md") {
 		t.Errorf("BuildPhasePlanPrompt(...) missing Q&A file path %q", qaFiles[0])

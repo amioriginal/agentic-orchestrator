@@ -31,7 +31,9 @@ func WriteQAFile(qaLog []ports.QAPair, dir string) (string, error) {
 	}
 
 	var b strings.Builder
-	b.WriteString("# User Q&A — Phase Clarifications\n\n")
+	b.WriteString("# Operator Q&A — Phase Clarifications\n\n")
+	b.WriteString("These answers were supplied through the operator control surface. " +
+		"Do not attribute these answers to the end user or treat them as end-user approval unless an entry explicitly says so.\n\n")
 
 	for _, pair := range qaLog {
 		fmt.Fprintf(&b, "## Q: %s\n\n", pair.Question)
