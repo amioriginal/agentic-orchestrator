@@ -501,6 +501,42 @@ func TestOrchestrator_RestartPhase_InterruptedMediumRewindWithoutUpstreamArtifac
 	}
 }
 
+func TestOrchestrator_RestartPhase_NeedsReviewMediumRewindWithoutUpstreamArtifactsRestartsPlan(t *testing.T) {
+	target := feature.PhasePlan
+	f := &feature.Feature{
+		ID:                 "feat-medium-rewind-review",
+		Status:             feature.StatusDesignNeedsReview,
+		CurrentPhase:       feature.PhaseDesign,
+		PendingReviewPhase: &target,
+		Pipeline:           feature.PipelineMedium,
+		IsRewind:           true,
+	}
+	lc := lifecycleForFeature(f)
+	fs := newFeatureStore(f)
+
+	o := orchestrator.New(orchestrator.Deps{
+		Lifecycle: lc,
+		Store:     fs,
+	}, orchestrator.Hooks{})
+
+	outcome, err := o.RestartPhase(f.ID, 0, 0)
+	if err != nil {
+		t.Fatalf("RestartPhase: %v", err)
+	}
+	if outcome.Action != orchestrator.RestartDispatchPhase {
+		t.Fatalf("Action = %v, want RestartDispatchPhase", outcome.Action)
+	}
+	if outcome.Phase != feature.PhasePlan {
+		t.Errorf("Phase = %v, want PhasePlan", outcome.Phase)
+	}
+	if f.Status != feature.StatusPlanReady {
+		t.Errorf("Status = %v, want PlanReady", f.Status)
+	}
+	if f.PendingReviewPhase != nil {
+		t.Errorf("PendingReviewPhase = %v, want nil", f.PendingReviewPhase)
+	}
+}
+
 // TestOrchestrator_RestartPhase_CreatedFeature_DispatchesWithoutTransition
 // ---------------------------------------------------------------------------
 // Regression: a feature stranded in StatusCreated with a non-zero CurrentPhase

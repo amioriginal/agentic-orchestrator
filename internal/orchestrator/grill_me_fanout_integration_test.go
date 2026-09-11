@@ -35,7 +35,9 @@ import (
 // pre-write to mimic harness-owned roadmap and phase-plan transcripts already
 // persisted by the planner loop. Includes the auto-pick annotation so the
 // integration test pins both record shapes.
-const fanoutQAFile = `# User Q&A — Phase Clarifications
+const fanoutQAFile = `# Operator Q&A — Phase Clarifications
+
+These answers were supplied through the operator control surface. Do not attribute these answers to the end user or treat them as end-user approval unless an entry explicitly says so.
 
 ## Q: What does the user want?
 **A:** Option A

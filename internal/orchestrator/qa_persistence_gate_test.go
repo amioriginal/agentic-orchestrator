@@ -203,7 +203,9 @@ const sampleAgentAuthoredQA = `# User Q&A — Phase Clarifications
 _(auto-picked, confidence: 0.85)_
 `
 
-const sampleHarnessOwnedQA = `# User Q&A — Phase Clarifications
+const sampleHarnessOwnedQA = `# Operator Q&A — Phase Clarifications
+
+These answers were supplied through the operator control surface. Do not attribute these answers to the end user or treat them as end-user approval unless an entry explicitly says so.
 
 ## Q: Q1
 
