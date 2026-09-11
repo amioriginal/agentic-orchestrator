@@ -471,6 +471,36 @@ func TestOrchestrator_RestartPhase_InterruptedFeature_KeepsStatus(t *testing.T) 
 	}
 }
 
+func TestOrchestrator_RestartPhase_InterruptedMediumRewindWithoutUpstreamArtifactsRestartsPlan(t *testing.T) {
+	f := &feature.Feature{
+		ID:           "feat-medium-rewind",
+		Status:       feature.StatusInterrupted,
+		CurrentPhase: feature.PhaseDesign,
+		Pipeline:     feature.PipelineMedium,
+	}
+	lc := lifecycleForFeature(f)
+	fs := newFeatureStore(f)
+
+	o := orchestrator.New(orchestrator.Deps{
+		Lifecycle: lc,
+		Store:     fs,
+	}, orchestrator.Hooks{})
+
+	outcome, err := o.RestartPhase(f.ID, 0, 0)
+	if err != nil {
+		t.Fatalf("RestartPhase: %v", err)
+	}
+	if outcome.Action != orchestrator.RestartDispatchPhase {
+		t.Fatalf("Action = %v, want RestartDispatchPhase", outcome.Action)
+	}
+	if outcome.Phase != feature.PhasePlan {
+		t.Errorf("Phase = %v, want PhasePlan", outcome.Phase)
+	}
+	if f.Status != feature.StatusPlanReady {
+		t.Errorf("Status = %v, want PlanReady", f.Status)
+	}
+}
+
 // TestOrchestrator_RestartPhase_CreatedFeature_DispatchesWithoutTransition
 // ---------------------------------------------------------------------------
 // Regression: a feature stranded in StatusCreated with a non-zero CurrentPhase

@@ -842,6 +842,31 @@ func (o *Orchestrator) RestartPhase(featureID string, maxIterationsDelta, maxPla
 	}
 	phase := f.CurrentPhase
 
+	// A medium pipeline starts at Plan and never runs the upstream research or
+	// design phases. A rewind can create a fresh run while leaving the feature
+	// interrupted at one of those phases; blindly re-dispatching that phase
+	// strands the run because the required upstream artifact does not exist.
+	// Normalize only this impossible medium-pipeline state back to Plan.
+	if f.Status == feature.StatusInterrupted &&
+		f.EffectivePipeline() == feature.PipelineMedium &&
+		feature.MinimumProfileForPhase(phase) != feature.PipelineMedium {
+		if err := o.deps.Store.Modify(featureID, func(ff *feature.Feature) error {
+			ff.Status = feature.StatusPlanReady
+			ff.CurrentPhase = feature.PhasePlan
+			ff.CurrentPhaseStatus = ""
+			ff.PendingReviewPhase = nil
+			ff.PendingRewindReviewRoadmapPhase = nil
+			ff.PendingNeedUserInputPath = ""
+			ff.IsRewind = false
+			ff.TotalRoadmapPhases = 0
+			clearPendingFeatureAttention(ff)
+			return nil
+		}); err != nil {
+			return RestartOutcome{}, fmt.Errorf("normalize medium pipeline restart: %w", err)
+		}
+		return RestartOutcome{Action: RestartDispatchPhase, Phase: feature.PhasePlan}, nil
+	}
+
 	if f.Status.IsNeedsReview() {
 		if err := o.deps.Store.Modify(featureID, func(ff *feature.Feature) error {
 			ff.Status = feature.StatusInterrupted
