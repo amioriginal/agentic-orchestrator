@@ -381,6 +381,9 @@ func TestBuildRoadmapPrompt_WithQAFiles(t *testing.T) {
 	if !strings.Contains(prompt, "Prior Operator Responses") {
 		t.Error("prompt should contain Prior Operator Responses section when QA files present")
 	}
+	if !strings.Contains(prompt, "Never relabel") || !strings.Contains(prompt, "Human Decisions") {
+		t.Error("prompt should explicitly prohibit relabeling operator responses as human decisions")
+	}
 	if !strings.Contains(prompt, "/state/feat/inquire/qa-answers.md") {
 		t.Error("prompt should contain inquire QA file path")
 	}

@@ -87,6 +87,9 @@ func TestBuildDesignPromptWithQAPaths(t *testing.T) {
 	if !strings.Contains(prompt, "## Prior Operator Responses") {
 		t.Error("expected '## Prior Operator Responses' section")
 	}
+	if !strings.Contains(prompt, "Never relabel") || !strings.Contains(prompt, "Human Decisions") {
+		t.Error("expected explicit prohibition on relabeling operator responses as human decisions")
+	}
 	for _, qf := range qaFiles {
 		if !strings.Contains(prompt, qf) {
 			t.Errorf("expected prompt to contain Q&A path %q", qf)
