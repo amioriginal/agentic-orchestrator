@@ -94,13 +94,10 @@ func TestDecideAskUserAutoPick(t *testing.T) {
 			input:       askInput(`{"question":"Roadmap?","options":[{"label":"A (Recommended)","confidence":1.0},{"label":"B","confidence":0.2}]}`),
 		},
 		{
-			name:        "phase plan creator uses none threshold override",
+			name:        "high inquireness disables phase plan creator auto pick",
 			purpose:     ports.AskUserAutoPickPurposePhasePlanCreator,
 			inquireness: feature.InquirenessHigh,
 			input:       askInput(`{"question":"Plan slice?","options":[{"label":"Tracer","confidence":0.51},{"label":"Full","confidence":0.2}]}`),
-			wantPick:    true,
-			wantAnswer:  "Tracer",
-			wantConf:    0.51,
 		},
 		{
 			name:        "disallowed purpose declines",

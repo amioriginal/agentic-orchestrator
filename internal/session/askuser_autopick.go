@@ -124,7 +124,7 @@ func decideAskUserAutoPick(input json.RawMessage, ctx askUserAutoPickDecisionCon
 }
 
 func askUserAutoPickThreshold(purpose ports.AskUserAutoPickPurpose, inquireness feature.Inquireness) (float64, bool) {
-	if purpose == ports.AskUserAutoPickPurposePhasePlanCreator {
+	if purpose == ports.AskUserAutoPickPurposePhasePlanCreator && inquireness != feature.InquirenessHigh {
 		inquireness = feature.InquirenessNone
 	}
 	switch inquireness {
