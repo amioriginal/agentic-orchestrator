@@ -79,6 +79,15 @@ For per-phase plans, collapse these dimensions into a concise check:
 - Are breaking changes covered by tests that would catch unintended regressions?
 - Is backward compatibility verified where applicable?
 
+### 6. Verification Scope and Evidence Reuse
+- Does each per-phase command prove behavior changed by that phase rather than rerunning a repository-wide or release-wide suite as an unexamined safety blanket?
+- If an ordinary implementation phase includes a full regression or release suite, does the plan identify either that this phase is the final release boundary or a measured dependency gap that makes narrower verification unsafe?
+- When the same expensive command already has a valid result, does the plan reuse that result only when candidate bytes, command, environment fingerprint, and authority are unchanged, and name a concrete invalidation reason before rerunning it?
+- Are affected-test and incremental-test products treated as inner-loop accelerators rather than correctness gates when they do not track file reads, subprocesses, services, or external state?
+- Does the plan retain one canonical full verification at the final release boundary without duplicating it across ordinary phases?
+
+Treat either of these as a **High** finding and return `CHANGES_REQUESTED`: an ordinary phase repeats a full repository/release suite with no release-boundary role or measured dependency reason; or a plan treats selector deselection or an unbound old receipt as sufficient final correctness evidence. Do not weaken regression protection to reduce runtime: require focused positive, negative, and integration evidence during the phase and the canonical full verification at the release boundary.
+
 ## For Split Plans (YAML format)
 
 If the plan is a split-plan.yaml, additionally evaluate:
