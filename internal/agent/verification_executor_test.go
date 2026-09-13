@@ -475,7 +475,7 @@ func verificationGitRepo(t *testing.T, script string) (string, string) {
 func runVerificationTestCommand(t *testing.T, runner ports.CommandRunner, dir, command string) {
 	t.Helper()
 	var stderr bytes.Buffer
-	if _, err := runner.Run(context.Background(), "/bin/sh", []string{"-lc", command}, ports.CommandOpts{Dir: dir, Stderr: &stderr}); err != nil {
+	if _, err := runner.Run(context.Background(), "/bin/sh", []string{"-c", command}, ports.CommandOpts{Dir: dir, Stderr: &stderr}); err != nil {
 		t.Fatalf("%s: %v: %s", command, err, strings.TrimSpace(stderr.String()))
 	}
 }
