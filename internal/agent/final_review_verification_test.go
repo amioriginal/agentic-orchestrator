@@ -224,7 +224,7 @@ func TestRunFeatureFinalReviewLoopPersistsContractRepairFeedback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read persisted plan repair feedback: %v", err)
 	}
-	if string(data) != result.PlanRevisionFeedback || !strings.Contains(string(data), "if then") {
+	if string(data) != result.PlanRevisionFeedback || !strings.Contains(string(data), "invalid verification shell syntax") {
 		t.Fatalf("persisted feedback=%q result=%q", data, result.PlanRevisionFeedback)
 	}
 }
@@ -246,7 +246,7 @@ func TestFinalReviewContractVerificationStopsOnContractError(t *testing.T) {
 	if status != ReviewFailed || !errors.As(err, &terminal) || terminal.status != "plan_revision_required" {
 		t.Fatalf("contract error = status=%s terminal=%+v err=%v", status, terminal, err)
 	}
-	if !strings.Contains(terminal.feedback, "if then") {
+	if !strings.Contains(terminal.feedback, "invalid verification shell syntax") {
 		t.Fatalf("contract feedback = %q, want invalid command", terminal.feedback)
 	}
 }
