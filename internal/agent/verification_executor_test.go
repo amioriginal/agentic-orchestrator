@@ -15,6 +15,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -473,8 +474,9 @@ func verificationGitRepo(t *testing.T, script string) (string, string) {
 
 func runVerificationTestCommand(t *testing.T, runner ports.CommandRunner, dir, command string) {
 	t.Helper()
-	if _, err := runner.Run(context.Background(), "/bin/sh", []string{"-lc", command}, ports.CommandOpts{Dir: dir}); err != nil {
-		t.Fatalf("%s: %v", command, err)
+	var stderr bytes.Buffer
+	if _, err := runner.Run(context.Background(), "/bin/sh", []string{"-lc", command}, ports.CommandOpts{Dir: dir, Stderr: &stderr}); err != nil {
+		t.Fatalf("%s: %v: %s", command, err, strings.TrimSpace(stderr.String()))
 	}
 }
 
