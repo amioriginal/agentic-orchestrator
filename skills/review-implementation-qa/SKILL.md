@@ -24,7 +24,51 @@ Own functional QA at Final Review:
 
 Read the design artifact (its acceptance criteria are the feature-level definition of done), roadmap and plan context, previous aggregate feedback, and prior implementation evidence before choosing what to exercise. Prefer a few representative end-to-end journeys over static inspection.
 
-Before returning APPROVED, execute the repository's full automated test suites (the documented aggregate commands) yourself and confirm they pass. For features without per-iteration machine verification you are the only execution gate; do not approve on code reading alone.
+Before returning APPROVED, establish aggregate regression coverage for the exact
+candidate. Do not rerun an expensive suite merely because a new Final Review
+iteration exists.
+
+1. Read prior implementation and every earlier Final Review iteration's evidence
+   first. Reuse a prior aggregate run without executing it again only when its
+   complete command, exit status, full log, and candidate head/tree or cumulative
+   diff hash for every touched repo are present. Compare the prior candidate with
+   the current candidate through Git: repository-owned dependency and lock inputs
+   used by the command must be unchanged, or their exact prior and current bytes
+   must be separately hashed. External tool/interpreter identity and the
+   execution environment must be equal or reproducibly equivalent. Treat the
+   standard QA posture as equivalent across iteration-specific directories only
+   when source remains read-only and writes remain confined to that iteration's
+   QA evidence root. If any comparison cannot be made, do not reuse. Cite the
+   reused receipt and explicitly say that the suite was not rerun.
+2. When candidate bytes changed after that aggregate run, prefer the
+   repository's documented affected-test selector and clean-baseline failure
+   classifier, if one exists. It must cover transitive code dependencies,
+   non-code inputs, and deletions, and it must fail closed to `full` or `HOLD`
+   when impact cannot be bounded. Run the selected tests yourself and cite both
+   the selection receipt and their original results. A prior aggregate receipt
+   plus this verified delta may establish coverage for the new candidate.
+3. Execute the documented full automated suites when there is no reusable
+   candidate-bound or compositional proof, when the repository has no qualified
+   affected-test path, or when that path returns `full`, `HOLD`, incomplete, or
+   unverifiable evidence. Run each required full-suite command at most once for
+   the same candidate and execution fingerprint.
+4. If an aggregate or selected run fails, never describe it as passing. Compare
+   failing test identities against a clean base under the same command,
+   environment, and permissions when the repository provides that workflow.
+   Treat new candidate-attributable Critical/High failures as blocking; record
+   baseline-equivalent or environment-only failures as explicit non-blocking
+   caveats under the Blocking Mandate below.
+5. Whenever you execute a selected or full-suite command, preserve a reusable
+   receipt under the current QA evidence root. Record the command and cwd,
+   candidate head/tree or cumulative diff hashes for every touched repo,
+   repository dependency/lock input hashes, external interpreter/tool identity,
+   normalized environment and permission posture, start/end times, exit status,
+   full-log path and log SHA-256, selection/baseline receipts when used, and the
+   receipt's own SHA-256. Do not claim a future iteration can reuse a run unless
+   these fields can be revalidated.
+
+For features without per-iteration machine verification or reusable evidence,
+you are the only execution gate; do not approve on code reading alone.
 
 ## Blocking Mandate
 
