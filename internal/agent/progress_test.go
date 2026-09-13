@@ -178,6 +178,22 @@ func TestWorktreeStateFingerprint(t *testing.T) {
 	if fp3 == fp1 {
 		t.Fatal("fingerprint should change when an untracked file is added")
 	}
+	originalInfo, err := os.Stat(filepath.Join(repo, "new.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Same-size content replacement with the original mtime must still be
+	// visible. Metadata-only fingerprints can otherwise reuse stale evidence.
+	if err := os.WriteFile(filepath.Join(repo, "new.txt"), []byte("b"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(filepath.Join(repo, "new.txt"), originalInfo.ModTime(), originalInfo.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	if fpSameMeta := WorktreeStateFingerprint(context.Background(), nil, []string{repo}); fpSameMeta == fp3 {
+		t.Fatal("fingerprint should hash untracked contents, not only path/size/mtime")
+	}
 
 	// Editing the still-untracked file must also change it (invisible to
 	// `git diff HEAD`, covered by the stat pass).

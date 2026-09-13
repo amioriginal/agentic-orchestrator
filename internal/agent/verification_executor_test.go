@@ -79,6 +79,9 @@ func TestExecuteTestingContractClassifiesInheritedFailure(t *testing.T) {
 	if len(out.InheritedItems) != 1 || len(out.RegressionItems) != 0 {
 		t.Fatalf("outcome = %+v, want one inherited and no regressions", out)
 	}
+	if out.Report.CandidateFingerprint == "" {
+		t.Fatal("harness report must bind verification evidence to the tested candidate")
+	}
 }
 
 func TestExecuteTestingContractClassifiesRepoPrefixedPathAsContractError(t *testing.T) {

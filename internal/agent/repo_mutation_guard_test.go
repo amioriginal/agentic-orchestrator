@@ -96,6 +96,47 @@ func TestRestoreReadOnlyRepoBaselinePreservesUntrackedEntries(t *testing.T) {
 	}
 }
 
+func TestRestoreReadOnlyRepoBaselinePreservesStagedAndUnstagedState(t *testing.T) {
+	repoDir := t.TempDir()
+	runRepoMutationGit(t, repoDir, "init")
+	runRepoMutationGit(t, repoDir, "config", "user.email", "test@example.com")
+	runRepoMutationGit(t, repoDir, "config", "user.name", "Test User")
+	path := filepath.Join(repoDir, "tracked.txt")
+	if err := os.WriteFile(path, []byte("base\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runRepoMutationGit(t, repoDir, "add", "tracked.txt")
+	runRepoMutationGit(t, repoDir, "commit", "-m", "baseline")
+	if err := os.WriteFile(path, []byte("staged\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runRepoMutationGit(t, repoDir, "add", "tracked.txt")
+	if err := os.WriteFile(path, []byte("unstaged\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := feature.FeatureRepo{Name: "repo", WorktreePath: repoDir}
+	baseline, ok, err := captureReadOnlyRepoSnapshot(context.Background(), nil, repo)
+	if err != nil || !ok || baseline.StagedDiff == "" {
+		t.Fatalf("capture baseline = ok %v, staged=%q, err %v", ok, baseline.StagedDiff, err)
+	}
+	if err := os.WriteFile(path, []byte("reviewer mutation\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runRepoMutationGit(t, repoDir, "add", "tracked.txt")
+	current, ok, err := captureReadOnlyRepoSnapshot(context.Background(), nil, repo)
+	if err != nil || !ok {
+		t.Fatalf("capture current = ok %v, err %v", ok, err)
+	}
+	if err := restoreReadOnlyRepoBaseline(context.Background(), nil, current, baseline); err != nil {
+		t.Fatal(err)
+	}
+	restored, ok, err := captureReadOnlyRepoSnapshot(context.Background(), nil, repo)
+	if err != nil || !ok || !readOnlyRepoSnapshotsEqual(baseline, restored) {
+		t.Fatalf("restored state = %+v, want %+v, ok=%v err=%v", restored, baseline, ok, err)
+	}
+}
+
 func runRepoMutationGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

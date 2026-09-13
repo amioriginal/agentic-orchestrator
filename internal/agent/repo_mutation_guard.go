@@ -43,6 +43,7 @@ type readOnlyRepoSnapshot struct {
 	WorktreePath string                  `json:"worktree_path"`
 	Status       string                  `json:"status"`
 	Diff         string                  `json:"diff"`
+	StagedDiff   string                  `json:"staged_diff,omitempty"`
 	Untracked    []readOnlyUntrackedFile `json:"untracked,omitempty"`
 }
 
@@ -78,7 +79,7 @@ func RecordReadOnlyRepoBaseline(ctx context.Context, runner ports.CommandRunner,
 		return fmt.Errorf("create read-only phase dir: %w", err)
 	}
 	data, err := json.MarshalIndent(readOnlyRepoBaseline{
-		Version: 1,
+		Version: 2,
 		Repos:   snapshots,
 	}, "", "  ")
 	if err != nil {
@@ -125,6 +126,13 @@ func EnforceReadOnlyRepoMutations(ctx context.Context, runner ports.CommandRunne
 		}
 		if err := restoreReadOnlyRepoBaseline(ctx, runner, snap, base); err != nil {
 			return nil, err
+		}
+		restored, ok, err := captureReadOnlyRepoSnapshot(ctx, runner, feature.FeatureRepo{Name: snap.Name, WorktreePath: snap.WorktreePath})
+		if err != nil || !ok {
+			return nil, fmt.Errorf("verify restored read-only repo %s: captured=%t: %w", snap.Name, ok, err)
+		}
+		if !readOnlyRepoSnapshotsEqual(base, restored) {
+			return nil, fmt.Errorf("verify restored read-only repo %s: restored state differs from baseline", snap.Name)
 		}
 		violations = append(violations, ProtocolViolation{
 			Artifact: fmt.Sprintf("target repo %s", snap.Name),
@@ -189,6 +197,10 @@ func captureReadOnlyRepoSnapshot(ctx context.Context, runner ports.CommandRunner
 	if err != nil {
 		return readOnlyRepoSnapshot{}, false, fmt.Errorf("git diff for %s: %w", repo.Name, err)
 	}
+	stagedDiff, err := gitOutput(ctx, runner, worktreePath, "diff", "--binary", "--cached", "HEAD", "--")
+	if err != nil {
+		return readOnlyRepoSnapshot{}, false, fmt.Errorf("git staged diff for %s: %w", repo.Name, err)
+	}
 	untracked, err := captureReadOnlyUntrackedFiles(ctx, runner, worktreePath)
 	if err != nil {
 		return readOnlyRepoSnapshot{}, false, fmt.Errorf("capture untracked files for %s: %w", repo.Name, err)
@@ -202,6 +214,7 @@ func captureReadOnlyRepoSnapshot(ctx context.Context, runner ports.CommandRunner
 		WorktreePath: worktreePath,
 		Status:       strings.TrimSpace(string(status)),
 		Diff:         string(diff),
+		StagedDiff:   string(stagedDiff),
 		Untracked:    untracked,
 	}, true, nil
 }
@@ -285,6 +298,11 @@ func restoreReadOnlyRepoBaseline(ctx context.Context, runner ports.CommandRunner
 	if strings.TrimSpace(baseline.Diff) != "" {
 		if _, err := gitOutputWithStdin(ctx, runner, worktreePath, strings.NewReader(baseline.Diff), "apply", "--binary", "--whitespace=nowarn"); err != nil {
 			return fmt.Errorf("restore baseline diff for %s: %w", current.Name, err)
+		}
+	}
+	if strings.TrimSpace(baseline.StagedDiff) != "" {
+		if _, err := gitOutputWithStdin(ctx, runner, worktreePath, strings.NewReader(baseline.StagedDiff), "apply", "--binary", "--cached", "--whitespace=nowarn"); err != nil {
+			return fmt.Errorf("restore baseline staged diff for %s: %w", current.Name, err)
 		}
 	}
 	for _, file := range baseline.Untracked {
@@ -415,7 +433,7 @@ func readReadOnlyRepoBaseline(phaseDir string) (readOnlyRepoBaseline, error) {
 }
 
 func readOnlyRepoSnapshotsEqual(a, b readOnlyRepoSnapshot) bool {
-	if strings.TrimSpace(a.Status) != strings.TrimSpace(b.Status) || a.Diff != b.Diff {
+	if strings.TrimSpace(a.Status) != strings.TrimSpace(b.Status) || a.Diff != b.Diff || a.StagedDiff != b.StagedDiff {
 		return false
 	}
 	if len(a.Untracked) != len(b.Untracked) {

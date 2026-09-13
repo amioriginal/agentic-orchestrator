@@ -126,16 +126,22 @@ func finalReviewFixEffortSource(cfg OrchestratorConfig) llm.EffortSource {
 //     the completion contract. Every staged repo's RepoState records the failure.
 //   - "interrupted":     graceful shutdown / feature stopped while
 //     running. No atomic stamp written; persisted state preserved.
+//   - "need_user_input": an executable verification requirement is blocked;
+//     no fixer is dispatched and the staged state is preserved.
+//   - "plan_revision_required": the testing contract is invalid for the
+//     current plan; no fixer is dispatched and the staged state is preserved.
 //   - "failed":          dispatch error before iteration began.
 //
 // Repos is the deduplicated, sorted list of touched repos at loop entry —
 // the canonical "FR-staged subset" the AtomicPhaseStamp wrote to.
 type FeatureFinalReviewResult struct {
-	FinalStatus          string
-	Iterations           int
-	LastError            string
-	Repos                []string
-	PlanRevisionFeedback string
+	FinalStatus              string
+	Iterations               int
+	LastError                string
+	Repos                    []string
+	PlanRevisionFeedback     string
+	PlanRevisionFeedbackPath string
+	NeedUserInputPath        string
 }
 
 // RunFeatureFinalReviewLoop runs one feature-level Final Review session per
@@ -238,9 +244,19 @@ func RunFeatureFinalReviewLoop(cfg OrchestratorConfig, sm ports.SessionManager) 
 		result.Repos = stagedRepos
 		return result, nil
 
-	case "interrupted":
+	case "need_user_input":
+		_ = AtomicPhaseStamp(cfg.FeatureStore, AtomicPhaseStampInput{
+			FeatureID: cfg.Feature.ID,
+			Repos:     stagedRepos,
+			Outcome:   PhaseOutcomeNeedUserInput,
+			GatePath:  result.NeedUserInputPath,
+		})
+		result.Repos = stagedRepos
+		return result, nil
+
+	case "interrupted", "plan_revision_required":
 		// No atomic stamp on interrupt; persisted state is left
-		// untouched so the next start picks up the loop.
+		// untouched so the next start can resume from the terminal gate.
 		result.Repos = stagedRepos
 		return result, nil
 
@@ -261,12 +277,13 @@ func RunFeatureFinalReviewLoop(cfg OrchestratorConfig, sm ports.SessionManager) 
 // once (workspace, contract path, staged repos); the run() method drives
 // the iteration cursor.
 type featureFinalReviewLoopState struct {
-	cfg         OrchestratorConfig
-	sm          ports.SessionManager
-	workspace   WorkspaceSetup
-	stateDir    string
-	artifactDir string
-	stagedRepos []string
+	cfg               OrchestratorConfig
+	sm                ports.SessionManager
+	workspace         WorkspaceSetup
+	stateDir          string
+	artifactDir       string
+	stagedRepos       []string
+	verificationCache map[string]finalReviewVerificationCacheEntry
 }
 
 // run executes the FR iteration loop. Returns a result with FinalStatus
@@ -327,6 +344,25 @@ func (s *featureFinalReviewLoopState) run() (*FeatureFinalReviewResult, error) {
 		reviewStatus, feedback, reviewErr := s.runReview(i, iterDir)
 
 		if reviewErr != nil {
+			var terminal *finalReviewVerificationTerminal
+			if errors.As(reviewErr, &terminal) {
+				feedbackPath := filepath.Join(iterDir, "review-feedback.md")
+				if writeErr := os.WriteFile(feedbackPath, []byte(terminal.feedback), 0o644); writeErr != nil {
+					return &FeatureFinalReviewResult{FinalStatus: "failed", Iterations: i, LastError: writeErr.Error()}, nil
+				}
+				s.writeIterationMetaWithAgent(iterDir, i, "", terminal.status)
+				result := &FeatureFinalReviewResult{
+					FinalStatus:       terminal.status,
+					Iterations:        i,
+					LastError:         terminal.feedback,
+					NeedUserInputPath: terminal.inputPath,
+				}
+				if terminal.status == "plan_revision_required" {
+					result.PlanRevisionFeedback = terminal.feedback
+					result.PlanRevisionFeedbackPath = feedbackPath
+				}
+				return result, nil
+			}
 			if isProtocolViolationError(reviewErr) {
 				consecutiveFailures++
 				s.writeIterationMetaWithAgent(iterDir, i, agentStatusProtocolViolation, "review_failed")
@@ -471,6 +507,13 @@ func (s *featureFinalReviewLoopState) runReview(iteration int, iterDir string) (
 }
 
 func (s *featureFinalReviewLoopState) runFinalReviewAxes(iteration int, iterDir string, cfg OrchestratorConfig) (ReviewStatus, string, error) {
+	freshEvidence, harnessStatus, harnessFeedback, harnessErr := s.runFinalReviewContractVerification(iteration, iterDir)
+	if harnessErr != nil {
+		return ReviewFailed, "", harnessErr
+	}
+	if harnessStatus != ReviewApproved {
+		return harnessStatus, harnessFeedback, nil
+	}
 	if err := RecordReadOnlyRepoBaseline(context.Background(), cfg.CommandRunner, cfg.Feature, iterDir); err != nil {
 		return ReviewFailed, "", fmt.Errorf("record final review axes read-only repo baseline: %w", err)
 	}
@@ -505,7 +548,7 @@ func (s *featureFinalReviewLoopState) runFinalReviewAxes(iteration int, iterDir 
 		axisStart := time.Now()
 		cfg.Observer.ValidatorStarted(axisCtx, axis.Name)
 
-		status, feedback, err := s.runFinalReviewAxis(iteration, iterDir, axis, axisCtx, cfg)
+		status, feedback, err := s.runFinalReviewAxis(iteration, iterDir, axis, axisCtx, cfg, freshEvidence)
 		results[i] = reviewAxisResult{Axis: axis.Name, Status: status, Feedback: feedback, Error: err}
 
 		verdict := status.String()
@@ -534,7 +577,7 @@ func (s *featureFinalReviewLoopState) runFinalReviewAxes(iteration int, iterDir 
 	return status, feedback, err
 }
 
-func (s *featureFinalReviewLoopState) runFinalReviewAxis(iteration int, iterDir string, axis implementationReviewAxis, parentCtx observe.SpanContext, cfg OrchestratorConfig) (ReviewStatus, string, error) {
+func (s *featureFinalReviewLoopState) runFinalReviewAxis(iteration int, iterDir string, axis implementationReviewAxis, parentCtx observe.SpanContext, cfg OrchestratorConfig, freshEvidence priorImplementationEvidenceContext) (ReviewStatus, string, error) {
 	axisSlug := implementationReviewAxisSlug(axis.Name)
 	axisDir := filepath.Join(iterDir, axisSlug)
 	if err := os.MkdirAll(axisDir, 0o755); err != nil {
@@ -547,6 +590,9 @@ func (s *featureFinalReviewLoopState) runFinalReviewAxis(iteration int, iterDir 
 
 	diffBase := featureDefaultDiffBase(cfg.Feature)
 	priorEvidence := priorImplementationEvidenceContextForRun(filepath.Dir(s.artifactDir))
+	priorEvidence.ReportPaths = append(priorEvidence.ReportPaths, freshEvidence.ReportPaths...)
+	priorEvidence.EvidenceRootDirs = append(priorEvidence.EvidenceRootDirs, freshEvidence.EvidenceRootDirs...)
+	priorEvidence.EvidenceArtifactPaths = append(priorEvidence.EvidenceArtifactPaths, freshEvidence.EvidenceArtifactPaths...)
 	intent := resolvePromptIntent(cfg.Feature)
 	prompt := BuildImplementationReviewAxisPromptWithOpts(ImplementationReviewAxisPromptOpts{
 		Gate:                                 implementationReviewGateFinal,

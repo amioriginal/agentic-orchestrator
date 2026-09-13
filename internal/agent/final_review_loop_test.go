@@ -1802,6 +1802,42 @@ func TestRunMultiRepoFinalReview_ProtocolViolationStatusPreserved(t *testing.T) 
 	}
 }
 
+func TestRunMultiRepoFinalReview_PreservesVerificationTerminalStatus(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		status    string
+		inputPath string
+		feedback  string
+	}{
+		{name: "need user input", status: "need_user_input", inputPath: "/tmp/need-user-input.json"},
+		{name: "plan revision", status: "plan_revision_required", feedback: "fix invalid verification command"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := newFRLoopEnv(t)
+			store, f, _ := newFRTestFeature(t, env.stateDir, "fr-terminal-status", []string{testRepoNameAPI})
+			cfg := OrchestratorConfig{
+				Feature: f, FeatureStore: store, StateDir: env.stateDir,
+				RunFinalReviewFn: func(_ OrchestratorConfig, _ ports.SessionManager) (*FeatureFinalReviewResult, error) {
+					return &FeatureFinalReviewResult{
+						FinalStatus: tc.status, LastError: tc.feedback, Repos: []string{testRepoNameAPI},
+						NeedUserInputPath: tc.inputPath, PlanRevisionFeedback: tc.feedback,
+					}, nil
+				},
+			}
+			result, err := RunMultiRepoFinalReview(cfg, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.FinalStatus != tc.status {
+				t.Fatalf("FinalStatus = %q, want %q", result.FinalStatus, tc.status)
+			}
+			if result.NeedUserInputPath != tc.inputPath || result.PlanRevisionFeedback != tc.feedback {
+				t.Fatalf("terminal payload = %+v", result)
+			}
+		})
+	}
+}
+
 // sliceContains is a small helper for AdditionalDirs assertions.
 func sliceContains(haystack []string, needle string) bool {
 	for _, s := range haystack {

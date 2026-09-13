@@ -187,10 +187,11 @@ func (pt *ProgressTracker) ObserveRetryOutcome(narrativeFP, worktreeFP string) b
 }
 
 // WorktreeStateFingerprint hashes each repo worktree's HEAD, porcelain
-// status, tracked diff, and untracked-file stats (path, size, mtime — new
-// files stay untracked for the whole phase, so their edits never appear in
-// `git diff HEAD`). Returns "" when no signal could be gathered so callers
-// treat it as unchanged. A nil runner falls back to direct execution.
+// status, tracked diff, and untracked-file contents. Untracked files stay
+// outside `git diff HEAD`, so hashing metadata alone would let same-size
+// content replacement with a restored mtime reuse stale verification.
+// Returns "" when no signal could be gathered so callers treat it as
+// unchanged. A nil runner falls back to direct execution.
 func WorktreeStateFingerprint(ctx context.Context, runner ports.CommandRunner, paths []string) string {
 	h := sha256.New()
 	gotSignal := false
@@ -216,8 +217,33 @@ func WorktreeStateFingerprint(ctx context.Context, runner ports.CommandRunner, p
 			if rel == "" {
 				continue
 			}
-			if fi, err := os.Stat(filepath.Join(p, rel)); err == nil {
-				fmt.Fprintf(h, "%s|%d|%d\n", rel, fi.Size(), fi.ModTime().UnixNano())
+			path := filepath.Join(p, rel)
+			fi, err := os.Lstat(path)
+			if err != nil {
+				fmt.Fprintf(h, "%s|unreadable\n", rel)
+				continue
+			}
+			fmt.Fprintf(h, "%s|%o|%d\n", rel, fi.Mode(), fi.Size())
+			switch {
+			case fi.Mode()&os.ModeSymlink != 0:
+				target, readErr := os.Readlink(path)
+				if readErr != nil {
+					fmt.Fprintf(h, "symlink-error|%v\n", readErr)
+					continue
+				}
+				fmt.Fprintf(h, "symlink|%s\n", target)
+			case fi.Mode().IsRegular():
+				file, openErr := os.Open(path)
+				if openErr != nil {
+					fmt.Fprintf(h, "content-error|%v\n", openErr)
+					continue
+				}
+				_, copyErr := io.Copy(h, file)
+				closeErr := file.Close()
+				if copyErr != nil || closeErr != nil {
+					fmt.Fprintf(h, "content-error|%v|%v\n", copyErr, closeErr)
+				}
+				h.Write([]byte{0})
 			}
 		}
 	}

@@ -243,15 +243,18 @@ func toStringSlice(v any) []string {
 // not here — verification-report.yaml is purely about verification check
 // results and contract metadata.
 type VerificationReport struct {
-	Version          int                       `yaml:"version"`
-	ContractPath     string                    `yaml:"contract_path,omitempty"`
-	ContractRevision int                       `yaml:"contract_revision,omitempty"`
-	Results          []VerificationCheckResult `yaml:"results,omitempty"`
-	Mismatches       []VerificationMismatch    `yaml:"mismatches,omitempty"`
-	RequiredChecks   []VerificationCheckResult `yaml:"required_checks,omitempty"`
-	AdditionalChecks []VerificationCheckResult `yaml:"additional_checks,omitempty"`
-	Summary          string                    `yaml:"summary,omitempty"`
-	KnownCaveats     KnownCaveats              `yaml:"known_caveats,omitempty"`
+	Version          int    `yaml:"version"`
+	ContractPath     string `yaml:"contract_path,omitempty"`
+	ContractRevision int    `yaml:"contract_revision,omitempty"`
+	// CandidateFingerprint binds the harness-owned result to the exact
+	// repository state that existed when command execution began.
+	CandidateFingerprint string                    `yaml:"candidate_fingerprint,omitempty"`
+	Results              []VerificationCheckResult `yaml:"results,omitempty"`
+	Mismatches           []VerificationMismatch    `yaml:"mismatches,omitempty"`
+	RequiredChecks       []VerificationCheckResult `yaml:"required_checks,omitempty"`
+	AdditionalChecks     []VerificationCheckResult `yaml:"additional_checks,omitempty"`
+	Summary              string                    `yaml:"summary,omitempty"`
+	KnownCaveats         KnownCaveats              `yaml:"known_caveats,omitempty"`
 }
 
 // KnownCaveats is a key→prose map of out-of-phase deferrals the agent

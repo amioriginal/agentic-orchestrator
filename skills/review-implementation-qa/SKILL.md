@@ -28,6 +28,15 @@ Before returning APPROVED, establish aggregate regression coverage for the exact
 candidate. Do not rerun an expensive suite merely because a new Final Review
 iteration exists.
 
+When the prompt supplies a `harness-verification` report from the current Final
+Review iteration, Agentico has already executed the plan-owned automated
+commands and bound that report to the current candidate before starting you.
+Inspect and cite that report, but do not execute those automated commands again.
+Your live-run work then covers representative assembled-product journeys that
+the automated contract does not cover. A missing, stale, regressed, or blocked
+current harness report is rejected before your session starts; never recreate
+or edit it yourself.
+
 1. Read prior implementation and every earlier Final Review iteration's evidence
    first. Reuse a prior aggregate run without executing it again only when its
    complete command, exit status, full log, and candidate head/tree or cumulative

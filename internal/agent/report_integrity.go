@@ -93,8 +93,9 @@ type ReportGateResult struct {
 // contract-backed evidence-file validation. IterationDir is the trust root for
 // evidence.primary and evidence.attachments paths.
 type VerificationReportValidationContext struct {
-	IterationDir string
-	Contract     *TestingContract
+	IterationDir                 string
+	Contract                     *TestingContract
+	ExpectedCandidateFingerprint string
 }
 
 // hedgePhrases are case-insensitive needles we refuse to see in the
@@ -140,6 +141,15 @@ func ValidateVerificationReport(report *VerificationReport, required []RequiredV
 // and behavioral evidence under that iteration root.
 func ValidateVerificationReportWithContext(report *VerificationReport, required []RequiredVerificationItem, rootSuccess bool, ctx VerificationReportValidationContext) ReportGateResult {
 	result := ReportGateResult{KnownCaveats: report.KnownCaveats}
+	if expected := strings.TrimSpace(ctx.ExpectedCandidateFingerprint); expected != "" &&
+		strings.TrimSpace(report.CandidateFingerprint) != expected {
+		result.Findings = append(result.Findings, ReportGateFinding{
+			Category: GateCategorySchema,
+			Kind:     KindStaleRevision,
+			Detail: fmt.Sprintf("verification report candidate fingerprint %q does not match current candidate fingerprint %q",
+				strings.TrimSpace(report.CandidateFingerprint), expected),
+		})
+	}
 
 	checks := reportChecks(report)
 	contract := ctx.Contract

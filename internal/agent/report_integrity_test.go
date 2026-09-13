@@ -627,6 +627,25 @@ func TestValidateVerificationReport_ContractContextDoesNotRequireReportContractP
 	}
 }
 
+func TestValidateVerificationReport_RejectsDifferentCandidateFingerprint(t *testing.T) {
+	contract := CompileTestingContract("#### Automated Verification:\n- [ ] Check: `printf ok`\n", "/tmp/phase-01/plan.md", "collapsed")
+	report := BuildContractVerificationReportStub(&contract, "/tmp/phase-01/testing-contract.yaml")
+	report.CandidateFingerprint = strings.Repeat("a", 64)
+	exitCode := 0
+	for i := range report.Results {
+		report.Results[i].Status = VerificationStatusPassed
+		report.Results[i].EvidenceData = VerificationEvidence{ExitCode: &exitCode, Summary: "passed"}
+	}
+
+	result := ValidateVerificationReportWithContext(&report, nil, true, VerificationReportValidationContext{
+		Contract:                     &contract,
+		ExpectedCandidateFingerprint: strings.Repeat("b", 64),
+	})
+	if !result.Rejected || !strings.Contains(reportGateDetailsForTest(result), "candidate fingerprint") {
+		t.Fatalf("candidate mismatch result = %+v, want deterministic rejection", result)
+	}
+}
+
 func TestValidateVerificationReport_ContractRevisionAndBlockedRules(t *testing.T) {
 	contract := CompileTestingContract("#### Automated Verification:\n- [ ] Agent tests: `go test ./internal/agent/... -count=1`\n", "/tmp/phase-02/plan.md", "tdd-fill-in")
 	report := BuildContractVerificationReportStub(&contract, "/tmp/phase-02/testing-contract.yaml")

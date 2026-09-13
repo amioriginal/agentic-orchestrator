@@ -147,6 +147,7 @@ func ExecuteTestingContract(
 	out := &VerificationExecutionOutcome{Report: report}
 	report.ContractPath = strings.TrimSpace(contractPath)
 	report.ContractRevision = contract.Revision
+	report.CandidateFingerprint = verificationCandidateFingerprint(ctx, runner, workspaceDir, repos)
 	grantRoots := loadSandboxGrantRoots(contractPath)
 	unsandboxedItems := loadUnsandboxedDispositions(contractPath)
 	if unsandboxedItems == nil {
@@ -499,6 +500,28 @@ func ExecuteTestingContract(
 	sort.Strings(out.InheritedItems)
 	sort.Slice(out.ContractErrors, func(i, j int) bool { return out.ContractErrors[i].ItemID < out.ContractErrors[j].ItemID })
 	return out, nil
+}
+
+func verificationCandidateFingerprint(ctx context.Context, runner ports.CommandRunner, workspaceDir string, repos []feature.FeatureRepo) string {
+	seen := make(map[string]bool, len(repos)+1)
+	paths := make([]string, 0, len(repos)+1)
+	for _, repo := range repos {
+		path := strings.TrimSpace(repo.WorktreePath)
+		if path == "" {
+			path = strings.TrimSpace(repo.Path)
+		}
+		if path != "" && !seen[path] {
+			seen[path] = true
+			paths = append(paths, path)
+		}
+	}
+	if len(paths) == 0 {
+		if path := strings.TrimSpace(workspaceDir); path != "" {
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	return WorktreeStateFingerprint(ctx, runner, paths)
 }
 
 // ReconstructVerificationOutcome rebuilds the routing outcome from a

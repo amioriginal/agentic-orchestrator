@@ -182,7 +182,8 @@ type OrchestratorResult struct {
 	// PlanRevisionFeedback carries phase-plan repair requirements when
 	// FinalStatus == "plan_revision_required". Final Review must run its fix
 	// leg instead of returning this status.
-	PlanRevisionFeedback string
+	PlanRevisionFeedback     string
+	PlanRevisionFeedbackPath string
 }
 
 // RunMultiRepoOrchestrator drives the unified phase-implement loop. Under
@@ -282,15 +283,20 @@ func RunMultiRepoFinalReview(cfg OrchestratorConfig, sm ports.SessionManager) (*
 		return &OrchestratorResult{FinalStatus: "all_passed"}, nil
 	case "interrupted":
 		return &OrchestratorResult{FinalStatus: "interrupted"}, nil
-	case "plan_revision_required":
-		// Final Review must keep fixes inside the final-review loop. Older
-		// injected/fake review runners may still return this status; surface
-		// it as a failure instead of reopening planning.
+	case "need_user_input":
 		return &OrchestratorResult{
-			FinalStatus:  "failed",
-			RepoStatuses: finalReviewRepoStatuses(frResult),
-			FailedRepos:  append([]string(nil), frResultRepos(frResult)...),
-			LastError:    "final review requested unsupported phase-plan revision",
+			FinalStatus:       "need_user_input",
+			PausedRepos:       append([]string(nil), frResultRepos(frResult)...),
+			NeedUserInputPath: frResult.NeedUserInputPath,
+			LastError:         frResult.LastError,
+		}, nil
+	case "plan_revision_required":
+		return &OrchestratorResult{
+			FinalStatus:              "plan_revision_required",
+			PausedRepos:              append([]string(nil), frResultRepos(frResult)...),
+			PlanRevisionFeedback:     frResult.PlanRevisionFeedback,
+			PlanRevisionFeedbackPath: frResult.PlanRevisionFeedbackPath,
+			LastError:                frResult.LastError,
 		}, nil
 	default:
 		return &OrchestratorResult{

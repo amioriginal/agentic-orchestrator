@@ -818,7 +818,8 @@ func RunImplementationLoop(cfg ImplementConfig, sm ports.SessionManager) (result
 			var harnessVerification *VerificationExecutionOutcome
 			var verificationContract *TestingContract
 			preliminaryProgress, _ := ParseProgressMd(progressPath)
-			if preliminaryProgress != nil && preliminaryProgress.State == StateSuccess && strings.TrimSpace(testingContractPath) != "" {
+			if preliminaryProgress != nil && preliminaryProgress.State == StateSuccess &&
+				strings.TrimSpace(testingContractPath) != "" && cfg.Feature.EffectivePipeline().ShouldRunImplementationHarness() {
 				if contractFingerprint != "" {
 					currentFingerprint, fingerprintErr := Fingerprint(testingContractPath)
 					if fingerprintErr != nil {
@@ -850,7 +851,9 @@ func RunImplementationLoop(cfg ImplementConfig, sm ports.SessionManager) (result
 						}
 					}
 				}
+				currentCandidate := verificationCandidateFingerprint(context.Background(), cfg.CommandRunner, cfg.WorkDir, verificationRepos)
 				if cached, cacheErr := ReadVerificationReport(reportPath); cacheErr == nil && cached != nil &&
+					currentCandidate != "" && cached.CandidateFingerprint == currentCandidate &&
 					cached.ContractRevision == contract.Revision && !verificationReportHasBlockedResults(cached) {
 					// Stop/restart resume: the harness already executed this
 					// iteration's contract and persisted the report. Reuse
@@ -1585,23 +1588,14 @@ func prepareImplementationTestingContract(cfg ImplementConfig, planContent strin
 	if !ok {
 		return "", "", nil
 	}
-	if !cfg.Feature.EffectivePipeline().ShouldRunImplementationHarness() {
-		// Medium/Large roadmap phases run no per-iteration harness; the
-		// plan's automated verification is the implementer's to run and is
-		// re-exercised live at Final Review. Remove any stale contract left
-		// by a prior run/profile so the implementer's presence check sees none.
-		if err := os.Remove(contractPath); err != nil && !os.IsNotExist(err) {
-			return "", "", fmt.Errorf("removing stale testing contract: %w", err)
-		}
-		return "", "", nil
-	}
 	contract := compileImplementationTestingContract(cfg, planContent)
 	if existing, err := ReadTestingContract(contractPath); err == nil {
 		contract = ReconcileTestingContract(existing, contract)
 	} else if !os.IsNotExist(err) {
 		return "", "", fmt.Errorf("reading existing testing contract: %w", err)
 	}
-	if testingContractRequiresCommandRunner(&contract) && cfg.CommandRunner == nil {
+	if cfg.Feature.EffectivePipeline().ShouldRunImplementationHarness() &&
+		testingContractRequiresCommandRunner(&contract) && cfg.CommandRunner == nil {
 		return "", "", errors.New("implementation testing contract contains harness-owned commands but CommandRunner is not configured")
 	}
 	if cfg.CommandRunner != nil && cfg.Feature != nil {

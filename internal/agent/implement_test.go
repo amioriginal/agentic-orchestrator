@@ -2116,7 +2116,7 @@ func countContractEvidenceRuns(t *testing.T, contractPath string) int {
 	return runs
 }
 
-func TestPrepareImplementationTestingContractSkipsNonMoonshotRoadmapPhases(t *testing.T) {
+func TestPrepareImplementationTestingContractPreservesLargeProfileContractForFinalReview(t *testing.T) {
 	tmpDir := t.TempDir()
 	stateRoot := filepath.Join(tmpDir, "state")
 	stateDir := filepath.Join(stateRoot, "test-large-roadmap")
@@ -2134,11 +2134,11 @@ func TestPrepareImplementationTestingContractSkipsNonMoonshotRoadmapPhases(t *te
 	if err != nil {
 		t.Fatalf("prepareImplementationTestingContract: %v", err)
 	}
-	if path != "" || fingerprint != "" {
-		t.Fatalf("expected no contract for large-profile roadmap phase, got path=%q fingerprint=%q", path, fingerprint)
+	if path == "" || fingerprint == "" {
+		t.Fatalf("expected a preserved contract for large-profile final review, got path=%q fingerprint=%q", path, fingerprint)
 	}
-	if _, statErr := os.Stat(PhaseTestingContractPath(filepath.Dir(cfg.StateDir), cfg.Feature, 1)); !os.IsNotExist(statErr) {
-		t.Fatalf("testing-contract.yaml must not be written for large-profile roadmap phase")
+	if _, statErr := os.Stat(PhaseTestingContractPath(filepath.Dir(cfg.StateDir), cfg.Feature, 1)); statErr != nil {
+		t.Fatalf("testing-contract.yaml must be preserved for large-profile final review: %v", statErr)
 	}
 }
 
@@ -2185,7 +2185,7 @@ func TestPrepareImplementationTestingContractMoonshotRoadmapPhaseStillWritesCont
 	}
 }
 
-func TestPrepareImplementationTestingContractNonMoonshotRoadmapRemovesStaleContract(t *testing.T) {
+func TestPrepareImplementationTestingContractLargeProfileReconcilesExistingContract(t *testing.T) {
 	tmpDir := t.TempDir()
 	stateRoot := filepath.Join(tmpDir, "state")
 	stateDir := filepath.Join(stateRoot, "test-large-stale")
@@ -2209,11 +2209,11 @@ func TestPrepareImplementationTestingContractNonMoonshotRoadmapRemovesStaleContr
 	if err != nil {
 		t.Fatalf("prepareImplementationTestingContract: %v", err)
 	}
-	if path != "" || fingerprint != "" {
-		t.Fatalf("expected no contract for large-profile roadmap phase, got path=%q fingerprint=%q", path, fingerprint)
+	if path != contractPath || fingerprint == "" {
+		t.Fatalf("expected reconciled large-profile contract, got path=%q fingerprint=%q", path, fingerprint)
 	}
-	if _, statErr := os.Stat(contractPath); !os.IsNotExist(statErr) {
-		t.Fatalf("stale testing-contract.yaml must be removed, stat err = %v", statErr)
+	if _, statErr := os.Stat(contractPath); statErr != nil {
+		t.Fatalf("reconciled testing-contract.yaml must remain for final review: %v", statErr)
 	}
 }
 
