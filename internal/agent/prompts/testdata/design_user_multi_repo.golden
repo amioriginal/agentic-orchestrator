@@ -25,9 +25,9 @@ Read the research document produced by the previous phase at:
 
 Read this file completely before proceeding.
 
-## User Decisions
+## Prior Operator Responses
 
-The user answered clarifying questions during earlier phases. Read these Q&A files for important context about their intent and preferences:
+These responses came through the operator control surface. Do not call them end-user decisions or end-user approval unless the artifact explicitly identifies that provenance. Keep the section name "Prior Operator Responses" when referring to them. Never relabel them as "User Decisions", "Human Decisions", user agreement, or user approval. Read these Q&A files for important context about their intent and preferences:
 - /state/feat-x/run-1/inquire/qa.md
 ## Ambiguity Resolution [grill-me]
 Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.

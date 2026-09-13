@@ -2,9 +2,9 @@
 
 Design Document: /state/feat-x/run-1/design/design.md
 
-## User Decisions
+## Prior Operator Responses
 
-The user answered clarifying questions during earlier phases. Read these Q&A files for important context about their intent and preferences — do not re-ask questions that have already been answered:
+These responses came through the operator control surface. Do not call them end-user decisions or end-user approval unless the artifact explicitly identifies that provenance. Keep the section name "Prior Operator Responses" when referring to them. Never relabel them as "User Decisions", "Human Decisions", user agreement, or user approval. Read these Q&A files for important context about their intent and preferences — do not re-ask questions that have already been answered:
 - /state/feat-x/run-1/inquire/qa.md
 - /state/feat-x/run-1/research/qa.md
 
